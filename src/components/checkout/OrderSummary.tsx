@@ -26,7 +26,7 @@ export function OrderSummary() {
             <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
               <Image
                 src={item.product.images[0]}
-                alt={item.product.title}
+                alt={item.product.name}
                 fill
                 className="object-cover"
               />
@@ -35,7 +35,7 @@ export function OrderSummary() {
               </div>
             </div>
             <div className="flex flex-1 flex-col justify-center">
-              <h3 className="line-clamp-1 text-sm font-bold">{item.product.title}</h3>
+              <h3 className="line-clamp-1 text-sm font-bold">{item.product.name}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
                 Size: {item.size} {item.color && `| Color: ${item.color}`}
               </p>

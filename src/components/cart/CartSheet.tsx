@@ -85,11 +85,20 @@ export function CartSheet() {
                           exit={{ opacity: 0, x: -20, height: 0 }}
                           className="flex gap-4 rounded-xl border border-white/5 bg-card p-3"
                         >
-                          {/* Image placeholder */}
+                          {/* Product Image */}
                           <div className="h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-                            <div className="flex h-full items-center justify-center">
-                              <ShoppingBag className="h-6 w-6 text-muted-foreground/30" />
-                            </div>
+                            {item.product.images[0] ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={item.product.images[0]}
+                                alt={item.product.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center">
+                                <ShoppingBag className="h-6 w-6 text-muted-foreground/30" />
+                              </div>
+                            )}
                           </div>
 
                           {/* Info */}

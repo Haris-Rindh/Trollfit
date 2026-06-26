@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { type Product } from "@/lib/demo-data";
+import { type Product } from "@/types";
 import { useCartStore } from "@/store/cart-store";
+import { useUIStore } from "@/store/ui-store";
 import { formatPrice } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ArrowRight, ShieldCheck, Truck, RefreshCcw } from "lucide-react";
@@ -13,7 +14,8 @@ interface ProductInfoProps {
 }
 
 export function ProductInfo({ product }: ProductInfoProps) {
-  const { addItem, setIsOpen } = useCartStore();
+  const { addItem } = useCartStore();
+  const { openCart } = useUIStore();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>(product.colors[0] || "");
   const [isAdding, setIsAdding] = useState(false);
@@ -27,12 +29,12 @@ export function ProductInfo({ product }: ProductInfoProps) {
 
     setIsAdding(true);
 
-    // Simulate a tiny delay for feeling premium
+    // Slight delay for premium feel
     setTimeout(() => {
       addItem(product, selectedSize, selectedColor);
       setIsAdding(false);
-      toast.success("Added to cart!");
-      setIsOpen(true);
+      toast.success("Added to cart! 🔥");
+      openCart();
     }, 400);
   };
 
@@ -48,7 +50,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
             </div>
           )}
           <h1 className="text-3xl font-black uppercase tracking-tight sm:text-4xl">
-            {product.title}
+            {product.name}
           </h1>
           <div className="mt-4 flex items-end gap-3">
             <span className="text-3xl font-bold">

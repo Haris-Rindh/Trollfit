@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { CartSheet } from "@/components/cart/CartSheet";
+import { SearchModal } from "@/components/layout/SearchModal";
 
 export default function StoreLayout({
   children,
@@ -11,6 +12,7 @@ export default function StoreLayout({
     <>
       <Navbar />
       <CartSheet />
+      <SearchModal />
       <main className="min-h-screen">{children}</main>
       <Footer />
     </>

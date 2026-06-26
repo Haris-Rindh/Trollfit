@@ -1,5 +1,5 @@
 import { ProductCard } from "@/components/shared/ProductCard";
-import { type Product } from "@/lib/demo-data";
+import { type Product } from "@/types";
 import { motion } from "framer-motion";
 import { ShoppingBag } from "lucide-react";
 
