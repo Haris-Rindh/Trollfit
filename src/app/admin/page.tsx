@@ -69,8 +69,48 @@ export default function AdminDashboard() {
         setRecentOrders(data.recentOrders);
         setStatusCounts(data.statusCounts);
       } catch (err: any) {
-        console.error("Dashboard fetch error:", err);
-        setError(err.message || "Something went wrong.");
+        console.warn("Admin metrics API failed, loading from local state:", err);
+        const localOrdersList = useAuthStore.getState().localOrders || [];
+        const totalSales = localOrdersList
+          .filter((o) => o.status !== "CANCELLED" && o.status !== "RETURNED")
+          .reduce((sum, o) => sum + Number(o.total), 0);
+        const totalOrders = localOrdersList.length;
+        const activeOrders = localOrdersList.filter((o) =>
+          ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED"].includes(o.status)
+        ).length;
+        const avgOrderValue = totalOrders > 0 ? Number((totalSales / totalOrders).toFixed(2)) : 0;
+
+        const formattedRecent = localOrdersList
+          .slice(0, 5)
+          .map((o) => ({
+            id: o.id,
+            number: o.number,
+            shippingName: o.shippingName,
+            total: Number(o.total),
+            status: o.status,
+            createdAt: o.createdAt.toString(),
+            paymentMethod: o.paymentMethod,
+            items: o.items.map((item) => ({
+              id: item.id,
+              name: item.name,
+              quantity: item.quantity,
+              size: item.size,
+              price: Number(item.price),
+            })),
+          }));
+
+        const counts: Record<string, number> = {};
+        localOrdersList.forEach((o) => {
+          counts[o.status] = (counts[o.status] || 0) + 1;
+        });
+        const formattedStatus = Object.entries(counts).map(([status, count]) => ({
+          status,
+          count,
+        }));
+
+        setMetrics({ totalSales, totalOrders, activeOrders, avgOrderValue });
+        setRecentOrders(formattedRecent);
+        setStatusCounts(formattedStatus);
       } finally {
         setLoading(false);
       }

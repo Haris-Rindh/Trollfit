@@ -15,7 +15,7 @@ export function Navbar() {
   const { isMobileNavOpen, toggleMobileNav, closeMobileNav, openSearch, openCart } =
     useUIStore();
   const totalItems = useCartStore((s) => s.totalItems);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { isAuthenticated, currentUser } = useAuthStore();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -97,7 +97,7 @@ export function Navbar() {
 
             {/* Account (desktop) */}
             <Link
-              href={isAuthenticated ? "/profile" : "/login"}
+              href={isAuthenticated ? (currentUser?.role === "ADMIN" ? "/admin" : "/profile") : "/login"}
               className="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
               aria-label="Account"
             >
@@ -142,7 +142,7 @@ export function Navbar() {
 
 function MobileNavOverlay() {
   const { isMobileNavOpen, closeMobileNav } = useUIStore();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { isAuthenticated, currentUser } = useAuthStore();
 
   return (
     <AnimatePresence>
@@ -214,7 +214,7 @@ function MobileNavOverlay() {
             <div className="border-t border-white/5 pt-6">
               <div className="grid grid-cols-2 gap-3">
                 <Link
-                  href={isAuthenticated ? "/profile" : "/login"}
+                  href={isAuthenticated ? (currentUser?.role === "ADMIN" ? "/admin" : "/profile") : "/login"}
                   onClick={closeMobileNav}
                   className="flex items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-medium transition-colors hover:bg-white/5"
                 >

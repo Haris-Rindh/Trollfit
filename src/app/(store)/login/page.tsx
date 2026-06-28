@@ -33,7 +33,12 @@ export default function LoginPage() {
       setIsLoading(false);
       if (success) {
         toast.success("Welcome back! 🔥");
-        router.push(redirect);
+        const user = useAuthStore.getState().currentUser;
+        if (user?.role === "ADMIN") {
+          router.push("/admin");
+        } else {
+          router.push(redirect);
+        }
       } else {
         toast.error("Invalid email or password. Try guest@trollfit.pk / password123 🧐");
       }

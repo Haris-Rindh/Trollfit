@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
+import { useAuthStore } from "@/store/auth-store";
 
 interface OrderItem {
   id: string;
@@ -83,8 +84,56 @@ export default function AdminOrders() {
       if (!res.ok) throw new Error(data.error || "Failed to load orders");
       setOrders(data.orders);
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Could not retrieve orders");
+      console.warn("Fetch orders API failed, loading from local state:", err);
+      let localList = useAuthStore.getState().localOrders || [];
+      
+      if (tab !== "ALL") {
+        localList = localList.filter((o) => o.status === tab);
+      }
+
+      if (querySearch) {
+        const q = querySearch.toLowerCase();
+        localList = localList.filter(
+          (o) =>
+            o.number.toLowerCase().includes(q) ||
+            o.shippingName.toLowerCase().includes(q) ||
+            o.shippingCity.toLowerCase().includes(q) ||
+            o.shippingPhone.toLowerCase().includes(q)
+        );
+      }
+
+      const formattedLocalList: Order[] = localList.map((o) => ({
+        id: o.id,
+        number: o.number,
+        userId: o.userId,
+        subtotal: Number(o.subtotal),
+        shipping: Number(o.shipping),
+        discount: Number(o.discount),
+        total: Number(o.total),
+        status: o.status,
+        paymentMethod: o.paymentMethod,
+        paymentStatus: o.paymentStatus,
+        shippingName: o.shippingName,
+        shippingPhone: o.shippingPhone,
+        shippingAddress: o.shippingAddress,
+        shippingCity: o.shippingCity,
+        shippingNotes: o.shippingNotes,
+        trackingNumber: o.trackingNumber,
+        couponCode: o.couponCode,
+        createdAt: o.createdAt.toString(),
+        items: o.items.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.name,
+          quantity: item.quantity,
+          size: item.size,
+          color: item.color,
+          price: Number(item.price),
+          image: item.image,
+        })),
+      }));
+
+      setOrders(formattedLocalList);
     } finally {
       setLoading(false);
     }
@@ -144,8 +193,39 @@ export default function AdminOrders() {
       setOrders(orders.map((o) => (o.id === selectedOrder.id ? data.order : o)));
       setSelectedOrder(data.order);
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to update order details");
+      console.warn("Update order API failed, performing local fallback updates:", err);
+      
+      const localList = useAuthStore.getState().localOrders || [];
+      const targetOrder = localList.find((o) => o.id === selectedOrder.id);
+      
+      if (targetOrder) {
+        const updatedLocalOrder = {
+          ...targetOrder,
+          status: modalStatus as any,
+          paymentStatus: modalPaymentStatus as any,
+          trackingNumber: modalTracking,
+          updatedAt: new Date(),
+        };
+
+        // Save back in store state
+        useAuthStore.setState({
+          localOrders: localList.map((o) => (o.id === selectedOrder.id ? updatedLocalOrder : o)),
+          orders: useAuthStore.getState().orders.map((o) => (o.id === selectedOrder.id ? updatedLocalOrder : o)),
+        });
+
+        const viewOrder: Order = {
+          ...selectedOrder,
+          status: modalStatus,
+          paymentStatus: modalPaymentStatus,
+          trackingNumber: modalTracking,
+        };
+
+        toast.success("Saved changes locally (offline mode) 🌐");
+        setOrders(orders.map((o) => (o.id === selectedOrder.id ? viewOrder : o)));
+        setSelectedOrder(viewOrder);
+      } else {
+        toast.error("Failed to update order details");
+      }
     } finally {
       setUpdatingStatus(false);
     }
