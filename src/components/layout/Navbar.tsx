@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, ShoppingBag, Heart, Menu, X, User } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
 import { useUIStore } from "@/store/ui-store";
+import { useAuthStore } from "@/store/auth-store";
 import { NAV_LINKS } from "@/lib/constants";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -14,6 +15,7 @@ export function Navbar() {
   const { isMobileNavOpen, toggleMobileNav, closeMobileNav, openSearch, openCart } =
     useUIStore();
   const totalItems = useCartStore((s) => s.totalItems);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -95,7 +97,7 @@ export function Navbar() {
 
             {/* Account (desktop) */}
             <Link
-              href="/login"
+              href={isAuthenticated ? "/profile" : "/login"}
               className="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
               aria-label="Account"
             >
@@ -140,6 +142,7 @@ export function Navbar() {
 
 function MobileNavOverlay() {
   const { isMobileNavOpen, closeMobileNav } = useUIStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return (
     <AnimatePresence>
@@ -211,12 +214,12 @@ function MobileNavOverlay() {
             <div className="border-t border-white/5 pt-6">
               <div className="grid grid-cols-2 gap-3">
                 <Link
-                  href="/login"
+                  href={isAuthenticated ? "/profile" : "/login"}
                   onClick={closeMobileNav}
                   className="flex items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-medium transition-colors hover:bg-white/5"
                 >
                   <User className="h-4 w-4" />
-                  Login
+                  {isAuthenticated ? "Account" : "Login"}
                 </Link>
                 <Link
                   href="/wishlist"

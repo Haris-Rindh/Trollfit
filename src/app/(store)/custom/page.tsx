@@ -24,6 +24,9 @@ import {
 } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
 import type { Product } from "@/types";
+import toast from "react-hot-toast";
+import { uploadFiles } from "@/lib/uploadthing";
+
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -400,6 +403,7 @@ export default function CustomDesignPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isCreatingPreview, setIsCreatingPreview] = useState(false);
   const [selectedSize, setSelectedSize] = useState("L");
+  const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -613,28 +617,68 @@ export default function CustomDesignPage() {
 
   // ─── Add to Cart ────────────────────────────────────
 
-  const handleAddToCart = () => {
-    const customProduct: Product = {
-      id: `custom-${Date.now()}`,
-      name: "Custom Design Tee",
-      slug: `custom-design-${Date.now()}`,
-      description: designSource === "ai" ? `AI Generated: "${aiPrompt}"` : "Custom uploaded design",
-      price: CUSTOM_PRICE,
-      images: [previewUrl || ""],
-      sizes: ["S", "M", "L", "XL", "2XL"],
-      colors: [shirtColor.name],
-      stockBySize: { S: 99, M: 99, L: 99, XL: 99, "2XL": 99 },
-      totalStock: 99,
-      featured: false,
-      trending: false,
-      isNew: true,
-      published: true,
-      tags: ["custom"],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    addItem(customProduct, selectedSize, shirtColor.name);
-    alert("Custom design added to cart!");
+  // Helper to convert base64 data URL to file
+  const dataURLtoFile = (dataurl: string, filename: string) => {
+    const arr = dataurl.split(",");
+    const mime = arr[0].match(/:(.*?);/)![1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  };
+
+  const handleAddToCart = async () => {
+    if (!previewUrl) {
+      toast.error("Please wait until the preview is generated.");
+      return;
+    }
+    try {
+      setIsUploading(true);
+      toast.loading("Uploading custom design print...", { id: "upload-toast" });
+
+      const file = dataURLtoFile(previewUrl, `custom-design-${Date.now()}.png`);
+      const uploadRes = await uploadFiles("designUploader", {
+        files: [file],
+      });
+
+      if (!uploadRes || uploadRes.length === 0) {
+        throw new Error("Upload failed. No file URL returned.");
+      }
+
+      const uploadedUrl = uploadRes[0].url;
+      console.log("Uploaded custom print file to UploadThing:", uploadedUrl);
+
+      const customProduct: Product = {
+        id: `custom-${Date.now()}`,
+        name: "Custom Design Tee",
+        slug: `custom-design-${Date.now()}`,
+        description: designSource === "ai" ? `AI Generated: "${aiPrompt}"` : "Custom uploaded design",
+        price: CUSTOM_PRICE,
+        images: [uploadedUrl],
+        sizes: ["S", "M", "L", "XL", "2XL"],
+        colors: [shirtColor.name],
+        stockBySize: { S: 99, M: 99, L: 99, XL: 99, "2XL": 99 },
+        totalStock: 99,
+        featured: false,
+        trending: false,
+        isNew: true,
+        published: true,
+        tags: ["custom"],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      addItem(customProduct, selectedSize, shirtColor.name);
+      toast.success("Custom design added to cart! 🎨 Check out now.", { id: "upload-toast" });
+      setIsUploading(false);
+    } catch (err: any) {
+      console.error("Custom print upload failed:", err);
+      toast.error("Failed to upload custom print design: " + (err.message || "Unknown error"), { id: "upload-toast" });
+      setIsUploading(false);
+    }
   };
 
   // ─── Render ─────────────────────────────────────────
@@ -1173,14 +1217,19 @@ export default function CustomDesignPage() {
                     </div>
                   </div>
 
-                  <motion.button
+                   <motion.button
+                    disabled={isUploading}
                     onClick={handleAddToCart}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground px-6 py-4 text-base font-bold text-background transition-all hover:opacity-90"
+                    whileHover={{ scale: isUploading ? 1 : 1.02 }}
+                    whileTap={{ scale: isUploading ? 1 : 0.98 }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground px-6 py-4 text-base font-bold text-background transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <ShoppingCart className="h-5 w-5" />
-                    Add to Cart — Rs. {CUSTOM_PRICE.toLocaleString()}
+                    {isUploading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="h-5 w-5" />
+                    )}
+                    {isUploading ? "Uploading Design..." : `Add to Cart — Rs. ${CUSTOM_PRICE.toLocaleString()}`}
                   </motion.button>
 
                   <p className="text-center text-xs text-muted-foreground">

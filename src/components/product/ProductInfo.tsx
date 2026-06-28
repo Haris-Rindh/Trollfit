@@ -4,9 +4,10 @@ import { useState } from "react";
 import { type Product } from "@/types";
 import { useCartStore } from "@/store/cart-store";
 import { useUIStore } from "@/store/ui-store";
+import { useWishlistStore } from "@/store/wishlist-store";
 import { formatPrice } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, ShieldCheck, Truck, RefreshCcw } from "lucide-react";
+import { Sparkles, ArrowRight, ShieldCheck, Truck, RefreshCcw, Heart } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface ProductInfoProps {
@@ -16,10 +17,22 @@ interface ProductInfoProps {
 export function ProductInfo({ product }: ProductInfoProps) {
   const { addItem } = useCartStore();
   const { openCart } = useUIStore();
+  const { toggleItem, isInWishlist } = useWishlistStore();
+  
+  const isWishlisted = isInWishlist(product.id);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>(product.colors[0] || "");
   const [isAdding, setIsAdding] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
+
+  const handleWishlistToggle = () => {
+    toggleItem(product.id);
+    if (isWishlisted) {
+      toast.success("Removed from wishlist");
+    } else {
+      toast.success("Added to wishlist! 💖");
+    }
+  };
 
   const handleAddToCart = () => {
     if (!selectedSize) {
@@ -134,27 +147,41 @@ export function ProductInfo({ product }: ProductInfoProps) {
           </div>
         </div>
 
-        {/* Add to Cart Button */}
-        <button
-          onClick={handleAddToCart}
-          disabled={isAdding}
-          className="group relative flex h-14 w-full items-center justify-center overflow-hidden rounded-xl bg-foreground text-background font-bold transition-all hover:bg-primary hover:text-primary-foreground active:scale-[0.98] disabled:opacity-80"
-        >
-          {isAdding ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="h-5 w-5 animate-spin rounded-full border-2 border-background border-t-transparent"
-            />
-          ) : (
-            <>
-              <span className="flex items-center gap-2">
-                ADD TO CART <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </span>
-              <div className="absolute inset-0 bg-white/20 mix-blend-overlay translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
-            </>
-          )}
-        </button>
+        {/* Add to Cart & Wishlist Actions */}
+        <div className="flex gap-4">
+          <button
+            onClick={handleAddToCart}
+            disabled={isAdding}
+            className="group relative flex h-14 flex-1 items-center justify-center overflow-hidden rounded-xl bg-foreground text-background font-bold transition-all hover:bg-primary hover:text-primary-foreground active:scale-[0.98] disabled:opacity-80"
+          >
+            {isAdding ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="h-5 w-5 animate-spin rounded-full border-2 border-background border-t-transparent"
+              />
+            ) : (
+              <>
+                <span className="flex items-center gap-2">
+                  ADD TO CART <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </span>
+                <div className="absolute inset-0 bg-white/20 mix-blend-overlay translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleWishlistToggle}
+            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-2 transition-all active:scale-95 ${
+              isWishlisted
+                ? "border-primary bg-primary/10 text-primary shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+                : "border-border hover:border-primary/50 hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+            }`}
+            aria-label="Toggle Wishlist"
+          >
+            <Heart className={`h-5 w-5 transition-transform ${isWishlisted ? "fill-primary text-primary scale-110" : ""}`} />
+          </button>
+        </div>
 
         {/* Value Props */}
         <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-border bg-card/50 p-5 text-sm sm:grid-cols-3">

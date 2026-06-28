@@ -99,7 +99,7 @@ export type OrderStatus =
   | "CANCELLED"
   | "RETURNED";
 
-export type PaymentMethod = "COD" | "JAZZCASH" | "EASYPAISA";
+export type PaymentMethod = "COD" | "JAZZCASH" | "EASYPAISA" | "SAFEPAY";
 
 export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
 

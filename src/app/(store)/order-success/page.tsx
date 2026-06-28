@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Package, Truck, MapPin, ArrowRight, Copy, Check } from "lucide-react";
 
 function generateOrderNumber() {
@@ -13,8 +14,18 @@ function generateOrderNumber() {
 }
 
 export default function OrderSuccessPage() {
-  const [orderNumber] = useState(generateOrderNumber);
+  const searchParams = useSearchParams();
+  const orderParam = searchParams.get("order");
+  const [orderNumber, setOrderNumber] = useState("");
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (orderParam) {
+      setOrderNumber(orderParam);
+    } else {
+      setOrderNumber(generateOrderNumber());
+    }
+  }, [orderParam]);
 
   const copyOrderNumber = () => {
     navigator.clipboard.writeText(orderNumber);
@@ -121,7 +132,7 @@ export default function OrderSuccessPage() {
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
-            href="/track-order"
+            href={`/track-order?order=${orderNumber}`}
             className="flex items-center justify-center gap-2 rounded-xl border border-border px-6 py-3.5 font-bold transition-all hover:bg-muted"
           >
             Track Order

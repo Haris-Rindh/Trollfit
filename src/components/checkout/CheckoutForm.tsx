@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/cart-store";
+import { useAuthStore } from "@/store/auth-store";
 import toast from "react-hot-toast";
 import {
   Banknote,
@@ -14,6 +15,7 @@ import {
   CheckCircle2,
   X,
   Loader2,
+  CreditCard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -39,6 +41,7 @@ const VALID_COUPONS: Record<string, Coupon> = {
 export function CheckoutForm() {
   const router = useRouter();
   const {
+    items,
     clearCart,
     setCoupon,
     removeCoupon,
@@ -47,7 +50,32 @@ export function CheckoutForm() {
     couponDiscount,
   } = useCartStore();
 
+  const { currentUser, addresses, addOrder } = useAuthStore();
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [notes, setNotes] = useState("");
+  
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "SAFEPAY">("COD");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Pre-fill fields if user is logged in
+  useEffect(() => {
+    if (currentUser) {
+      setName(currentUser.name || "");
+      setPhone(currentUser.phone || "");
+      
+      const defaultAddr = addresses.find(
+        (a) => a.userId === currentUser.id && a.isDefault
+      );
+      if (defaultAddr) {
+        setAddress(defaultAddr.address);
+        setCity(defaultAddr.city);
+      }
+    }
+  }, [currentUser, addresses]);
 
   // Coupon state
   const [couponInput, setCouponInput] = useState("");
@@ -57,14 +85,85 @@ export function CheckoutForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name || !phone || !address || !city) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    const sub = subtotal();
+    const ship = sub >= 3000 ? 0 : 200;
+    const disc = couponDiscount;
+    const tot = sub + ship - disc;
+
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+    const random = Math.floor(Math.random() * 999).toString().padStart(3, "0");
+    const orderNum = `TF-${dateStr}-${random}`;
+
+    const orderItems = items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      size: item.size,
+      color: item.color,
+      price: Number(item.product.salePrice || item.product.price),
+      name: item.product.name,
+      image: item.product.images[0],
+    }));
+
+    try {
+      // Place order in database
+      const placedOrder = await addOrder({
+        number: orderNum,
+        items: orderItems,
+        subtotal: sub,
+        shipping: ship,
+        discount: disc,
+        total: tot,
+        status: paymentMethod === "COD" ? "PROCESSING" : "PENDING",
+        paymentMethod: paymentMethod,
+        paymentStatus: "PENDING",
+        shippingName: name,
+        shippingPhone: phone,
+        shippingAddress: address,
+        shippingCity: city,
+        shippingNotes: notes || undefined,
+        trackingNumber: orderNum,
+        couponCode: couponCode || undefined,
+      });
+
+      if (!placedOrder) {
+        throw new Error("Could not save the order. Please try again.");
+      }
+
+      if (paymentMethod === "SAFEPAY") {
+        // Online Payment Flow: Create checkout session
+        const payRes = await fetch("/api/payment/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: tot, orderId: orderNum }),
+        });
+
+        const payData = await payRes.json();
+        if (!payRes.ok) throw new Error(payData.error || "Failed to start payment gateway");
+
+        // Clear cart and redirect to Safepay sandbox checkout portal
+        clearCart();
+        setIsSubmitting(false);
+        toast.loading("Redirecting to secure payment portal...");
+        window.location.href = payData.checkoutUrl;
+      } else {
+        // Cash on Delivery Flow
+        setIsSubmitting(false);
+        clearCart();
+        toast.success("Order Placed Successfully! 🎉");
+        router.push(`/order-success?number=${orderNum}`);
+      }
+    } catch (err: any) {
+      console.error("Order submission error:", err);
+      toast.error(err.message || "Failed to process checkout.");
       setIsSubmitting(false);
-      clearCart();
-      toast.success("Order Placed Successfully! 🎉");
-      router.push("/order-success");
-    }, 1500);
+    }
   };
 
   // ─── Apply coupon ───────────────────────────────────────
@@ -134,6 +233,8 @@ export function CheckoutForm() {
                 required
                 type="text"
                 placeholder="Ali Khan"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 outline-none focus:border-primary"
               />
             </div>
@@ -148,7 +249,8 @@ export function CheckoutForm() {
                 required
                 type="tel"
                 placeholder="0300 1234567"
-                pattern="[0-9]*"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 outline-none focus:border-primary"
               />
             </div>
@@ -161,6 +263,8 @@ export function CheckoutForm() {
               required
               rows={3}
               placeholder="House #, Street #, Phase/Block, Area"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
               className="w-full rounded-xl border border-border bg-card p-4 outline-none focus:border-primary"
             />
           </div>
@@ -172,6 +276,8 @@ export function CheckoutForm() {
               required
               type="text"
               placeholder="Karachi, Lahore, Islamabad, etc."
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
               className="w-full rounded-xl border border-border bg-card px-4 py-3 outline-none focus:border-primary"
             />
           </div>
@@ -187,19 +293,56 @@ export function CheckoutForm() {
           <h2 className="text-xl font-bold uppercase tracking-wide">Payment Method</h2>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl border-2 border-primary bg-primary/5 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-primary">
-                <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* COD */}
+          <div
+            onClick={() => setPaymentMethod("COD")}
+            className={`cursor-pointer rounded-xl border-2 p-5 transition-all ${
+              paymentMethod === "COD"
+                ? "border-primary bg-primary/5 shadow-[0_0_15px_rgba(var(--primary-rgb),0.1)]"
+                : "border-border bg-card hover:border-muted-foreground/30"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                  paymentMethod === "COD" ? "border-primary" : "border-muted-foreground"
+                }`}>
+                  {paymentMethod === "COD" && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                </div>
+                <span className="font-bold">Cash on Delivery (COD)</span>
               </div>
-              <span className="font-bold">Cash on Delivery (COD)</span>
+              <Banknote className="h-5 w-5 text-muted-foreground" />
             </div>
-            <Banknote className="h-6 w-6 text-primary" />
+            <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+              Pay with cash directly to the rider upon receiving your parcel. No advance fee.
+            </p>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Pay with cash directly to the rider upon receiving your parcel. No hidden fees.
-          </p>
+
+          {/* SAFEPAY */}
+          <div
+            onClick={() => setPaymentMethod("SAFEPAY")}
+            className={`cursor-pointer rounded-xl border-2 p-5 transition-all ${
+              paymentMethod === "SAFEPAY"
+                ? "border-primary bg-primary/5 shadow-[0_0_15px_rgba(var(--primary-rgb),0.1)]"
+                : "border-border bg-card hover:border-muted-foreground/30"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                  paymentMethod === "SAFEPAY" ? "border-primary" : "border-muted-foreground"
+                }`}>
+                  {paymentMethod === "SAFEPAY" && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                </div>
+                <span className="font-bold">Pay Online (Cards/Wallets)</span>
+              </div>
+              <CreditCard className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+              Secure payments powered by Safepay. Supports Visa, MasterCard, and local wallets.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -303,16 +446,11 @@ export function CheckoutForm() {
         className="relative flex h-14 w-full items-center justify-center overflow-hidden rounded-xl bg-primary text-primary-foreground font-bold transition-all active:scale-[0.98] disabled:opacity-80"
       >
         {isSubmitting ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"
-          />
+          <Loader2 className="h-5 w-5 animate-spin text-primary-foreground" />
         ) : (
-          "CONFIRM ORDER"
+          `CONFIRM ORDER (Rs. ${(subtotal() + (subtotal() >= 3000 ? 0 : 200) - couponDiscount).toLocaleString()})`
         )}
       </button>
     </form>
   );
 }
-

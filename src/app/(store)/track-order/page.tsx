@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuthStore } from "@/store/auth-store";
 import {
   Search,
   CheckCircle2,
@@ -25,6 +27,64 @@ interface TrackingStep {
   description: string;
   status: StepStatus;
   time?: string;
+}
+
+function getOrderTracking(orderNumber: string) {
+  const order = useAuthStore.getState().getOrderById(orderNumber);
+  
+  if (order) {
+    const steps: TrackingStep[] = [
+      {
+        label: "Order Confirmed",
+        description: "Your order has been placed and payment verified.",
+        status: "done",
+        time: new Date(order.createdAt).toLocaleString("en-PK", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+      {
+        label: "Processing",
+        description: "Our team is picking and packing your drip.",
+        status: order.status === "DELIVERED" || order.status === "SHIPPED" || order.status === "PROCESSING"
+          ? "done"
+          : (order.status === "CONFIRMED" || order.status === "PENDING" ? "active" : "pending"),
+      },
+      {
+        label: "Shipped",
+        description: "Your order is on its way to your city.",
+        status: order.status === "DELIVERED" || order.status === "SHIPPED"
+          ? "done"
+          : (order.status === "PROCESSING" ? "active" : "pending"),
+      },
+      {
+        label: "Delivered",
+        description: "Package arrived — time to flex!",
+        status: order.status === "DELIVERED"
+          ? "done"
+          : (order.status === "SHIPPED" ? "active" : "pending"),
+      },
+    ];
+
+    return {
+      orderNumber: order.number,
+      status: order.status,
+      estimatedDelivery: order.status === "DELIVERED" ? "Delivered" : "2-3 Business Days",
+      placedOn: new Date(order.createdAt).toLocaleDateString("en-PK", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+      courier: "TCS Express",
+      city: order.shippingCity,
+      steps,
+    };
+  }
+
+  return getMockTracking(orderNumber);
 }
 
 // ─── Mock data ──────────────────────────────────────────────────────────────
@@ -90,30 +150,40 @@ function StepIcon({ status }: { status: StepStatus }) {
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 export default function TrackOrderPage() {
+  const searchParams = useSearchParams();
+  const orderParam = searchParams.get("order");
+
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ReturnType<typeof getMockTracking> | null>(null);
+  const [result, setResult] = useState<ReturnType<typeof getOrderTracking> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, targetOrder?: string) => {
+    if (e) e.preventDefault();
     setError(null);
     setResult(null);
 
-    const trimmed = inputValue.trim().toUpperCase();
-    if (!trimmed) return;
+    const code = (targetOrder || inputValue).trim().toUpperCase();
+    if (!code) return;
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, 1000));
     setLoading(false);
 
-    if (!trimmed.startsWith("TF-")) {
+    if (!code.startsWith("TF-")) {
       setError("Order not found. Please check your order number.");
       return;
     }
 
-    setResult(getMockTracking(trimmed));
+    setResult(getOrderTracking(code));
   };
+
+  useEffect(() => {
+    if (orderParam) {
+      setInputValue(orderParam);
+      handleSubmit(undefined, orderParam);
+    }
+  }, [orderParam]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
