@@ -13,8 +13,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await db.user.findUnique({
-      where: { email },
+    let user = await db.user.findUnique({
+      where: { email: email.toLowerCase() },
       include: {
         addresses: true,
         orders: {
@@ -24,6 +24,58 @@ export async function POST(req: Request) {
         },
       },
     });
+
+    // Auto-seed default accounts on first login if they don't exist in Supabase
+    if (!user) {
+      if (email.toLowerCase() === "guest@trollfit.pk") {
+        const hashedPassword = await bcrypt.hash("password123", 10);
+        user = await db.user.create({
+          data: {
+            email: "guest@trollfit.pk",
+            password: hashedPassword,
+            name: "Guest Drip Lord",
+            phone: "0300 1234567",
+            role: "CUSTOMER",
+            addresses: {
+              create: {
+                name: "Guest Drip Lord",
+                phone: "0300 1234567",
+                address: "House 42, Street 3, Block 5, Clifton",
+                city: "Karachi",
+                isDefault: true,
+              },
+            },
+          },
+          include: {
+            addresses: true,
+            orders: {
+              include: {
+                items: true,
+              },
+            },
+          },
+        });
+      } else if (email.toLowerCase() === "admin@trollfit.pk") {
+        const hashedPassword = await bcrypt.hash("admin123", 10);
+        user = await db.user.create({
+          data: {
+            email: "admin@trollfit.pk",
+            password: hashedPassword,
+            name: "Admin Drip Lord",
+            phone: "0311 7654321",
+            role: "ADMIN",
+          },
+          include: {
+            addresses: true,
+            orders: {
+              include: {
+                items: true,
+              },
+            },
+          },
+        });
+      }
+    }
 
     if (!user || !user.password) {
       return NextResponse.json(

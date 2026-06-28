@@ -137,9 +137,33 @@ export default function LoginPage() {
         </form>
 
         {/* Demo Hint */}
-        <div className="mt-6 rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 text-xs text-yellow-500/80 leading-relaxed text-center">
-          <Sparkles className="mr-1 inline-block h-3.5 w-3.5" />
-          <strong>Demo account:</strong> guest@trollfit.pk / password123
+        <div className="mt-6 space-y-2 rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 text-xs text-yellow-500/80 leading-relaxed">
+          <div className="text-center font-bold mb-1">
+            <Sparkles className="mr-1 inline-block h-3.5 w-3.5" />
+            Quick Demo Access:
+          </div>
+          <div className="flex gap-2 justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("guest@trollfit.pk");
+                setPassword("password123");
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 font-bold border border-yellow-500/20 transition-all text-[10px]"
+            >
+              Guest Customer
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("admin@trollfit.pk");
+                setPassword("admin123");
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 font-bold border border-yellow-500/20 transition-all text-[10px]"
+            >
+              Admin Panel
+            </button>
+          </div>
         </div>
 
         {/* Footer */}
