@@ -38,7 +38,7 @@ export function HeroSection() {
     <section
       ref={containerRef}
       id="hero"
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background"
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background pt-24 sm:pt-28"
     >
       {/* Background effects */}
       <div className="absolute inset-0">

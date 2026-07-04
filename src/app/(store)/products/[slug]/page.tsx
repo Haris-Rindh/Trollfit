@@ -108,7 +108,7 @@ export default async function ProductPage({ params }: PageProps) {
     <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Product Gallery */}
-        <div className="lg:sticky lg:top-24 lg:h-[calc(100vh-6rem)]">
+        <div className="lg:sticky lg:top-24 lg:h-fit">
           <ProductGallery images={product.images} title={product.name} />
         </div>
 
