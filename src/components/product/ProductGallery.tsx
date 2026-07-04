@@ -12,6 +12,14 @@ interface ProductGalleryProps {
 export function ProductGallery({ images, title }: ProductGalleryProps) {
   const [activeImage, setActiveImage] = useState(0);
 
+  if (!images || images.length === 0) {
+    return (
+      <div className="flex aspect-[4/5] w-full items-center justify-center rounded-2xl bg-muted/20 text-muted-foreground font-semibold">
+        No Images Available
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* Main Image */}

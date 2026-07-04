@@ -30,7 +30,7 @@ export function SocialProof() {
         </ScrollReveal>
 
         {/* Stats */}
-        <StaggerContainer className="mb-16 grid grid-cols-3 gap-4 md:gap-8">
+        <StaggerContainer className="mb-16 grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-8">
           {STATS.map((stat) => (
             <StaggerItem key={stat.label}>
               <motion.div

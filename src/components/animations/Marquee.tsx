@@ -1,11 +1,8 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { motion } from "framer-motion";
-
 interface MarqueeProps {
   children: React.ReactNode;
-  speed?: number; // pixels per second
+  speed?: number; // duration in seconds for one full loop cycle
   direction?: "left" | "right";
   pauseOnHover?: boolean;
   className?: string;
@@ -14,69 +11,54 @@ interface MarqueeProps {
 
 export function Marquee({
   children,
-  speed = 50,
+  speed = 25,
   direction = "left",
   pauseOnHover = true,
   className = "",
   gap = 40,
 }: MarqueeProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [contentWidth, setContentWidth] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-
-  useEffect(() => {
-    if (containerRef.current) {
-      const firstChild = containerRef.current.children[0] as HTMLElement;
-      if (firstChild) {
-        setContentWidth(firstChild.offsetWidth + gap);
-      }
-    }
-  }, [children, gap]);
-
-  const duration = contentWidth > 0 ? contentWidth / speed : 10;
+  const uniqueId = `marquee-${direction}-${speed}`;
 
   return (
     <div
-      className={`relative overflow-hidden ${className}`}
-      onMouseEnter={() => pauseOnHover && setIsPaused(true)}
-      onMouseLeave={() => pauseOnHover && setIsPaused(false)}
+      className={`relative overflow-hidden w-full flex ${className}`}
+      style={{
+        maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+        WebkitMaskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+      }}
     >
-      <motion.div
-        ref={containerRef}
-        className="flex w-max"
-        animate={
-          !isPaused
-            ? {
-                x:
-                  direction === "left"
-                    ? [0, -contentWidth]
-                    : [-contentWidth, 0],
-              }
-            : undefined
+      <style>{`
+        @keyframes ${uniqueId} {
+          0% {
+            transform: translateX(${direction === "left" ? "0%" : "-50%"});
+          }
+          100% {
+            transform: translateX(${direction === "left" ? "-50%" : "0%"});
+          }
         }
-        transition={{
-          x: {
-            duration,
-            repeat: Infinity,
-            ease: "linear",
-            repeatType: "loop",
-          },
-        }}
-        style={{ gap: `${gap}px` }}
+        .animate-${uniqueId} {
+          display: flex;
+          width: max-content;
+          animation: ${uniqueId} ${speed}s linear infinite;
+        }
+        .pause-hover-${uniqueId}:hover {
+          animation-play-state: ${pauseOnHover ? "paused" : "running"};
+        }
+      `}</style>
+      
+      <div 
+        className={`animate-${uniqueId} ${pauseOnHover ? `pause-hover-${uniqueId}` : ""}`} 
+        style={{ gap: `${gap}px`, paddingRight: `${gap}px` }}
       >
-        {/* Original */}
+        {/* Render twice for a clean, seamless loop */}
         <div className="flex shrink-0 items-center" style={{ gap: `${gap}px` }}>
           {children}
         </div>
-        {/* Duplicate for seamless loop */}
         <div className="flex shrink-0 items-center" style={{ gap: `${gap}px` }}>
           {children}
         </div>
-        {/* Third copy for safety */}
-        <div className="flex shrink-0 items-center" style={{ gap: `${gap}px` }}>
-          {children}
-        </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
+export default Marquee;
