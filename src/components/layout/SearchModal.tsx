@@ -4,13 +4,12 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, X, ArrowRight, Tag } from "lucide-react";
+import { Search, X, ArrowRight, Tag, Loader2 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { DEMO_PRODUCTS } from "@/lib/demo-data";
 import type { Product } from "@/types";
 
 // ─── Search Logic ────────────────────────────────────────
-
 function searchProducts(query: string): Product[] {
   if (!query.trim()) return [];
   const q = query.toLowerCase().trim();
@@ -24,7 +23,6 @@ function searchProducts(query: string): Product[] {
 }
 
 // ─── Quick-tag suggestions ───────────────────────────────
-
 const QUICK_TAGS = [
   "anime",
   "meme",
@@ -36,24 +34,33 @@ const QUICK_TAGS = [
   "trending",
 ];
 
-// ─── SearchModal ─────────────────────────────────────────
-
 export function SearchModal() {
   const { isSearchOpen, closeSearch } = useUIStore();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const results = searchProducts(query);
+  // Debouncing query updates
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 250);
+
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  const results = searchProducts(debouncedQuery);
   const hasQuery = query.trim().length > 0;
+  const isSearching = query.trim() !== debouncedQuery.trim();
 
   // Autofocus when modal opens
   useEffect(() => {
     if (isSearchOpen) {
-      // Small delay to allow animation to start
       const t = setTimeout(() => inputRef.current?.focus(), 80);
       return () => clearTimeout(t);
     } else {
       setQuery("");
+      setDebouncedQuery("");
     }
   }, [isSearchOpen]);
 
@@ -68,7 +75,6 @@ export function SearchModal() {
   useEffect(() => {
     if (isSearchOpen) {
       document.addEventListener("keydown", handleKeyDown);
-      // Prevent body scroll
       document.body.style.overflow = "hidden";
     }
     return () => {
@@ -80,6 +86,7 @@ export function SearchModal() {
   const handleResultClick = () => {
     closeSearch();
     setQuery("");
+    setDebouncedQuery("");
   };
 
   return (
@@ -104,6 +111,9 @@ export function SearchModal() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -16, scale: 0.97 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Search products"
             className="fixed left-0 right-0 top-0 z-[70] mx-auto flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-b-3xl border-b border-x border-white/10 bg-background shadow-2xl shadow-black/50 sm:top-8 sm:rounded-3xl"
           >
             {/* Search Input Row */}
@@ -131,7 +141,6 @@ export function SearchModal() {
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto">
               <AnimatePresence mode="wait">
-                {/* Results */}
                 {hasQuery ? (
                   <motion.div
                     key="results"
@@ -141,10 +150,15 @@ export function SearchModal() {
                     transition={{ duration: 0.15 }}
                     className="p-4 sm:p-6"
                   >
-                    {results.length > 0 ? (
+                    {isSearching ? (
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="mt-3 text-sm text-muted-foreground">Searching...</p>
+                      </div>
+                    ) : results.length > 0 ? (
                       <>
                         <p className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                          {results.length} result{results.length !== 1 ? "s" : ""} for &quot;{query}&quot;
+                          {results.length} result{results.length !== 1 ? "s" : ""} for &quot;{debouncedQuery}&quot;
                         </p>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                           {results.map((product, i) => (
@@ -158,11 +172,11 @@ export function SearchModal() {
                         </div>
                       </>
                     ) : (
-                      <NoResults query={query} />
+                      <NoResults query={debouncedQuery} />
                     )}
                   </motion.div>
                 ) : (
-                  /* Empty state — show quick tags */
+                  /* Suggestions empty state */
                   <motion.div
                     key="suggestions"
                     initial={{ opacity: 0 }}
@@ -187,7 +201,7 @@ export function SearchModal() {
                       ))}
                     </div>
 
-                    {/* Trending products preview */}
+                    {/* Trending previews */}
                     <p className="mb-4 mt-8 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                       Trending now 🔥
                     </p>
@@ -208,7 +222,7 @@ export function SearchModal() {
               </AnimatePresence>
             </div>
 
-            {/* Footer */}
+            {/* Footer info */}
             <div className="flex items-center justify-between border-t border-border px-5 py-3 text-[11px] text-muted-foreground sm:px-6">
               <span>
                 Press <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">ESC</kbd> to close
@@ -229,7 +243,6 @@ export function SearchModal() {
 }
 
 // ─── Search Result Card ───────────────────────────────────
-
 function SearchResultCard({
   product,
   index,
@@ -268,7 +281,6 @@ function SearchResultCard({
               <span className="text-2xl">👕</span>
             </div>
           )}
-          {/* Sale badge */}
           {hasDiscount && (
             <span className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-[9px] font-bold uppercase text-white">
               Sale
@@ -303,7 +315,6 @@ function SearchResultCard({
 }
 
 // ─── No Results ────────────────────────────────────────────
-
 function NoResults({ query }: { query: string }) {
   return (
     <motion.div

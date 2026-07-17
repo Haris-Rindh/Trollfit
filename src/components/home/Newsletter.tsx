@@ -4,22 +4,40 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { Send, Check, Mail, Sparkles } from "lucide-react";
+import Image from "next/image";
+import toast from "react-hot-toast";
 
 export function Newsletter() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
 
     setStatus("loading");
-    // Simulate API call
-    setTimeout(() => {
-      setStatus("success");
-      setEmail("");
-      setTimeout(() => setStatus("idle"), 3000);
-    }, 1500);
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setStatus("success");
+        setEmail("");
+        toast.success("Welcome to the Troll Army! 🥳");
+        setTimeout(() => setStatus("idle"), 3000);
+      } else {
+        throw new Error(data.error || "Failed to subscribe");
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : "Subscription failed";
+      toast.error(errMsg);
+      setStatus("idle");
+    }
   };
 
   return (
@@ -33,7 +51,14 @@ export function Newsletter() {
             className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 p-3"
             whileHover={{ scale: 1.1, rotate: 5 }}
           >
-            <img src="/monogram.png" alt="TF" className="h-full w-full object-contain" />
+            {/* Optimized image replacement */}
+            <Image
+              src="/monogram.png"
+              alt="TF"
+              width={64}
+              height={64}
+              className="h-full w-full object-contain"
+            />
           </motion.div>
 
           <h2 className="mb-3 text-3xl font-black tracking-tight sm:text-4xl">

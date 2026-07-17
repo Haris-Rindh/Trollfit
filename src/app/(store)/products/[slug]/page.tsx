@@ -50,9 +50,9 @@ export async function generateMetadata({ params }: PageProps) {
         ...dbProduct,
         price: Number(dbProduct.price),
         salePrice: dbProduct.salePrice ? Number(dbProduct.salePrice) : undefined,
-      } as any;
+      } as unknown as Product;
     }
-  } catch (error) {
+  } catch {
     console.warn("Metadata DB fetch failed or timed out, using demo fallback");
   }
 
@@ -89,9 +89,9 @@ export default async function ProductPage({ params }: PageProps) {
         ...dbProduct,
         price: Number(dbProduct.price),
         salePrice: dbProduct.salePrice ? Number(dbProduct.salePrice) : undefined,
-      } as any;
+      } as unknown as Product;
     }
-  } catch (error) {
+  } catch {
     console.warn("Product Detail DB fetch failed or timed out, using demo fallback");
   }
 
@@ -104,8 +104,30 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "image": product.images,
+    "description": product.description || product.shortDesc || `Buy ${product.name} at TrollFit.`,
+    "sku": product.id,
+    "offers": {
+      "@type": "Offer",
+      "url": `https://trollfit.pk/products/${product.slug}`,
+      "priceCurrency": "PKR",
+      "price": product.salePrice || product.price,
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition",
+    },
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
+      {/* JSON-LD Structured Metadata */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Product Gallery */}
         <div className="lg:sticky lg:top-24 lg:h-fit">

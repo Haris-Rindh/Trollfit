@@ -3,6 +3,17 @@ import { persist } from "zustand/middleware";
 import type { User, Address, Order, OrderItem } from "@/types";
 import toast from "react-hot-toast";
 
+async function sha256(message: string): Promise<string> {
+  if (typeof window === "undefined" || !window.crypto || !window.crypto.subtle) {
+    // Basic fallback for server environments if store runs during SSR
+    return message; 
+  }
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 interface AuthState {
   currentUser: User | null;
   isAuthenticated: boolean;
@@ -11,15 +22,16 @@ interface AuthState {
   isLoading: boolean;
 
   // Local fallback storage
-  localUsers: (User & { password?: string })[];
+  localUsers: (User & { passwordHash?: string })[];
   localAddresses: Address[];
   localOrders: Order[];
 
   // Actions
   login: (email: string, password?: string) => Promise<boolean>;
   signup: (name: string, email: string, password?: string, phone?: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (name: string, phone: string, email: string) => Promise<boolean>;
+  checkSession: () => Promise<void>;
   
   // Address actions
   addAddress: (address: Omit<Address, "id" | "userId">) => Promise<boolean>;
@@ -42,7 +54,7 @@ export const useAuthStore = create<AuthState>()(
       orders: [],
       isLoading: false,
 
-      // Initialize local fallback state
+      // Initialize local fallback state with SHA-256 hashes instead of plaintext passwords
       localUsers: [
         {
           id: "usr-guest",
@@ -50,7 +62,7 @@ export const useAuthStore = create<AuthState>()(
           email: "guest@trollfit.pk",
           phone: "0300 1234567",
           role: "CUSTOMER",
-          password: "password123",
+          passwordHash: "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f", // SHA-256 of password123
         },
         {
           id: "usr-admin",
@@ -58,7 +70,7 @@ export const useAuthStore = create<AuthState>()(
           email: "admin@trollfit.pk",
           phone: "0311 7654321",
           role: "ADMIN",
-          password: "admin123",
+          passwordHash: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9", // SHA-256 of admin123
         }
       ],
       localAddresses: [
@@ -86,12 +98,10 @@ export const useAuthStore = create<AuthState>()(
           const data = await res.json();
           
           if (res.status === 401) {
-            // Explicit invalid credentials from backend
             throw new Error("INVALID_CREDENTIALS");
           }
 
           if (!res.ok) {
-            // Database is down or pooler error
             throw new Error("DATABASE_DOWN");
           }
 
@@ -125,7 +135,9 @@ export const useAuthStore = create<AuthState>()(
             (u) => u.email.toLowerCase() === email.toLowerCase()
           );
 
-          if (matchingUser && (!password || matchingUser.password === password)) {
+          const inputHash = password ? await sha256(password) : "";
+
+          if (matchingUser && matchingUser.passwordHash === inputHash) {
             const userAddresses = get().localAddresses.filter((a) => a.userId === matchingUser.id);
             const userOrders = get().localOrders.filter((o) => o.userId === matchingUser.id);
             
@@ -190,13 +202,14 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const newId = `usr-${Date.now()}`;
+          const passHash = password ? await sha256(password) : "";
           const newUser = {
             id: newId,
             name,
             email,
             phone,
             role: "CUSTOMER" as const,
-            password,
+            passwordHash: passHash,
           };
 
           const newAddress: Address = {
@@ -230,14 +243,42 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
+      logout: async () => {
+        try {
+          await fetch("/api/auth/logout", { method: "POST" });
+        } catch (error) {
+          console.warn("Logout endpoint failed:", error);
+        }
         set({ currentUser: null, isAuthenticated: false, addresses: [], orders: [] });
+      },
+
+      checkSession: async () => {
+        try {
+          const res = await fetch("/api/auth/me");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.user) {
+              set({
+                currentUser: data.user,
+                isAuthenticated: true,
+                addresses: data.user.addresses || [],
+                orders: data.user.orders || [],
+              });
+              return;
+            }
+          }
+          // Clear if session is invalid or missing
+          set({ currentUser: null, isAuthenticated: false, addresses: [], orders: [] });
+        } catch (error) {
+          console.warn("Failed to check session state:", error);
+        }
       },
 
       updateProfile: async (name, phone, email) => {
         const current = get().currentUser;
         if (!current) return false;
         try {
+
           const res = await fetch("/api/auth/profile", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },

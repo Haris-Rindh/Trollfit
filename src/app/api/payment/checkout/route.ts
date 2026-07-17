@@ -1,26 +1,52 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
-    const { amount, orderId } = await req.json();
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
+    const limiter = rateLimit(ip, 10, 60 * 1000); // Prevent checkout flood
 
-    if (!amount || !orderId) {
+    if (!limiter.success) {
       return NextResponse.json(
-        { error: "Amount and Order ID are required" },
+        { error: "Too many attempts. Please try again in a minute." },
+        { status: 429 }
+      );
+    }
+
+    const { orderId } = await req.json();
+
+    if (!orderId) {
+      return NextResponse.json(
+        { error: "Order ID is required" },
         { status: 400 }
       );
     }
 
+    // Secure Price Integrity: Fetch the real order total from the database instead of trusting client input
+    const order = await db.order.findUnique({
+      where: { number: orderId },
+    });
+
+    if (!order) {
+      return NextResponse.json(
+        { error: "Order not found in database" },
+        { status: 404 }
+      );
+    }
+
+    const amount = Number(order.total);
+
     const safepayApiKey = process.env.SAFEPAY_API_KEY;
     if (!safepayApiKey) {
       return NextResponse.json(
-        { error: "Safepay API Key is missing in environment variables" },
+        { error: "Payment gateway key is not configured" },
         { status: 500 }
       );
     }
 
     // Safepay expects amount in lowest denomination (Paise for PKR, e.g. amount * 100)
-    const amountInPaise = Math.round(Number(amount) * 100);
+    const amountInPaise = Math.round(amount * 100);
 
     // Call Safepay API to create tracker/session
     console.log("Initializing Safepay tracker for order:", orderId, "Amount (paise):", amountInPaise);
@@ -39,24 +65,33 @@ export async function POST(req: Request) {
     });
 
     const sessionData = await sessionRes.json();
-    console.log("Safepay API Response:", sessionData);
 
     if (!sessionRes.ok || !sessionData?.data?.token) {
       return NextResponse.json(
-        { error: sessionData?.message || "Failed to initialize Safepay session" },
+        { error: sessionData?.message || "Failed to initialize payment session" },
         { status: 500 }
       );
     }
 
     const trackerToken = sessionData.data.token;
 
-    // Get origin dynamically from request headers
-    const origin = req.headers.get("origin") || "http://localhost:3000";
+    // Open Redirect Mitigation: whitelist allowed redirect origins
+    const requestOrigin = req.headers.get("origin") || "";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "https://trollfit.pk",
+      "https://www.trollfit.pk",
+      siteUrl,
+    ];
+
+    const safeOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : siteUrl;
 
     // Build the checkout redirect URL
     const baseUrl = "https://sandbox.api.getsafepay.com/checkout/pay";
-    const redirectUrl = `${origin}/order-success?number=${orderId}&payment=success`;
-    const cancelUrl = `${origin}/checkout?payment=cancelled`;
+    const redirectUrl = `${safeOrigin}/order-success?number=${orderId}&payment=success`;
+    const cancelUrl = `${safeOrigin}/checkout?payment=cancelled`;
 
     const checkoutUrl = `${baseUrl}?env=sandbox&beacon=${trackerToken}&client=${safepayApiKey}&order_id=${orderId}&redirect_url=${encodeURIComponent(redirectUrl)}&cancel_url=${encodeURIComponent(cancelUrl)}&source=custom`;
 
@@ -64,7 +99,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("Safepay checkout session error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

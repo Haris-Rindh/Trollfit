@@ -4,16 +4,12 @@ import Image from "next/image";
 import { useCartStore } from "@/store/cart-store";
 import { formatPrice } from "@/lib/utils";
 
-const SHIPPING_FEE = 200;
-
 export function OrderSummary() {
-  const { items } = useCartStore();
+  const { items, subtotal: getSubtotal, couponDiscount, couponCode } = useCartStore();
 
-  const subtotal = items.reduce((total, item) => {
-    const price = item.product.salePrice || item.product.price;
-    return total + price * item.quantity;
-  }, 0);
-  const total = subtotal + SHIPPING_FEE;
+  const subtotal = getSubtotal();
+  const shippingFee = subtotal >= 3000 ? 0 : 200;
+  const total = subtotal + shippingFee - couponDiscount;
 
   return (
     <div className="rounded-2xl border border-border bg-card/50 p-6 backdrop-blur-sm lg:p-8">
@@ -24,12 +20,18 @@ export function OrderSummary() {
         {items.map((item) => (
           <div key={`${item.id}-${item.size}-${item.color}`} className="flex gap-4">
             <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
-              <Image
-                src={item.product.images[0]}
-                alt={item.product.name}
-                fill
-                className="object-cover"
-              />
+              {item.product.images[0] ? (
+                <Image
+                  src={item.product.images[0]}
+                  alt={item.product.name}
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+                  No Image
+                </div>
+              )}
               <div className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-background">
                 {item.quantity}
               </div>
@@ -40,7 +42,7 @@ export function OrderSummary() {
                 Size: {item.size} {item.color && `| Color: ${item.color}`}
               </p>
               <p className="mt-1 text-sm font-semibold">
-                {formatPrice(item.product.salePrice || item.product.price)}
+                {formatPrice(Number(item.product.salePrice || item.product.price))}
               </p>
             </div>
           </div>
@@ -53,10 +55,21 @@ export function OrderSummary() {
           <span className="text-muted-foreground">Subtotal</span>
           <span className="font-semibold">{formatPrice(subtotal)}</span>
         </div>
+        
         <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Shipping (Flat Rate)</span>
-          <span className="font-semibold">{formatPrice(SHIPPING_FEE)}</span>
+          <span className="text-muted-foreground">Shipping</span>
+          <span className="font-semibold">
+            {shippingFee === 0 ? "FREE" : formatPrice(shippingFee)}
+          </span>
         </div>
+
+        {couponCode && couponDiscount > 0 && (
+          <div className="flex justify-between text-sm text-emerald-400">
+            <span>Discount ({couponCode})</span>
+            <span className="font-semibold">-{formatPrice(couponDiscount)}</span>
+          </div>
+        )}
+
         <div className="mt-4 border-t border-border pt-4">
           <div className="flex justify-between">
             <span className="text-lg font-black uppercase">Total</span>

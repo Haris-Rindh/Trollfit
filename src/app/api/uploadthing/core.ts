@@ -1,4 +1,5 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
+import { verifyJWT } from "@/lib/jwt";
 
 const f = createUploadthing();
 
@@ -12,11 +13,23 @@ export const ourFileRouter = {
     },
   })
     .middleware(async ({ req }) => {
+      // Extract session token from cookie
+      const cookieHeader = req.headers.get("cookie");
+      const token = cookieHeader
+        ?.split("; ")
+        .find((row) => row.startsWith("trollfit-session="))
+        ?.split("=")[1];
+
+      if (!token) throw new Error("Unauthorized: Session token missing");
+      
+      const session = await verifyJWT(token);
+      if (!session) throw new Error("Unauthorized: Invalid session");
+
       // Whatever returned here is accessible in onUploadComplete as `metadata`
-      return { uploadedBy: "TrollFitClient" };
+      return { userId: session.userId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      console.log("Upload complete for design print:", file.url);
+      console.log("Upload complete for design print by user:", metadata.userId, "url:", file.url);
       return { url: file.url };
     }),
 } satisfies FileRouter;

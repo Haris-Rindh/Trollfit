@@ -1,17 +1,9 @@
-"use client";
-
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Instagram, Facebook, Twitter, MessageCircle, MapPin, Mail, Phone } from "lucide-react";
-import { FOOTER_LINKS, SOCIAL_LINKS, SITE_CONFIG } from "@/lib/constants";
+import Image from "next/image";
+import { MapPin, Mail, Phone } from "lucide-react";
+import { FOOTER_LINKS, SITE_CONFIG } from "@/lib/constants";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
-
-const SOCIAL_ICONS = [
-  { icon: Instagram, href: SOCIAL_LINKS.instagram, label: "Instagram" },
-  { icon: Facebook, href: SOCIAL_LINKS.facebook, label: "Facebook" },
-  { icon: Twitter, href: SOCIAL_LINKS.twitter, label: "Twitter/X" },
-  { icon: MessageCircle, href: SOCIAL_LINKS.whatsapp, label: "WhatsApp" },
-];
+import { SocialLinks } from "./SocialLinks";
 
 export function Footer() {
   return (
@@ -24,29 +16,21 @@ export function Footer() {
           {/* Brand Column */}
           <ScrollReveal className="lg:col-span-1">
             <Link href="/" className="inline-block">
-              <img src="/logo.png" alt="TrollFit" className="h-10 w-28 object-cover object-center invert dark:invert-0 mix-blend-multiply dark:mix-blend-screen" />
+              {/* Optimized Image replacement for logo */}
+              <Image 
+                src="/logo.png" 
+                alt="TrollFit" 
+                width={112} 
+                height={40} 
+                className="object-cover object-center invert dark:invert-0 mix-blend-multiply dark:mix-blend-screen" 
+              />
             </Link>
             <p className="mb-6 mt-4 text-sm leading-relaxed text-muted-foreground">
               {SITE_CONFIG.description.slice(0, 120)}...
             </p>
 
-            {/* Social links */}
-            <div className="flex gap-3">
-              {SOCIAL_ICONS.map((social) => (
-                <motion.a
-                  key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-muted-foreground transition-all hover:border-primary/30 hover:bg-primary/10 hover:text-primary hover:shadow-[0_0_20px_rgba(168,85,247,0.15)]"
-                  whileHover={{ y: -2, scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  aria-label={social.label}
-                >
-                  <social.icon className="h-4 w-4" />
-                </motion.a>
-              ))}
-            </div>
+            {/* Social links (Client component island) */}
+            <SocialLinks />
           </ScrollReveal>
 
           {/* Shop Links */}

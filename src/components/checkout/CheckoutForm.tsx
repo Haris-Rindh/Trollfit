@@ -83,12 +83,23 @@ export function CheckoutForm() {
 
   // ─── Submit order ───────────────────────────────────────
 
+  const validatePhone = (p: string) => {
+    const clean = p.replace(/[\s-]/g, "");
+    return /^(\+92|0)?3\d{9}$/.test(clean);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone || !address || !city) {
       toast.error("Please fill in all required fields.");
       return;
     }
+
+    if (!validatePhone(phone)) {
+      toast.error("Please enter a valid Pakistani mobile number (e.g., 03001234567).");
+      return;
+    }
+
     setIsSubmitting(true);
 
     const sub = subtotal();

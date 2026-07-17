@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { X, Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
 import { useUIStore } from "@/store/ui-store";
@@ -30,6 +31,9 @@ export function CartSheet() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Shopping Cart"
             className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-white/5 bg-background shadow-2xl"
           >
             {/* Header */}
@@ -46,6 +50,7 @@ export function CartSheet() {
               <button
                 onClick={closeCart}
                 className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+                aria-label="Close cart"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -86,13 +91,14 @@ export function CartSheet() {
                           className="flex gap-4 rounded-xl border border-white/5 bg-card p-3"
                         >
                           {/* Product Image */}
-                          <div className="h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+                          <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
                             {item.product.images[0] ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
+                              <Image
                                 src={item.product.images[0]}
                                 alt={item.product.name}
-                                className="h-full w-full object-cover"
+                                fill
+                                className="object-cover"
+                                sizes="80px"
                               />
                             ) : (
                               <div className="flex h-full items-center justify-center">
@@ -121,6 +127,7 @@ export function CartSheet() {
                                     updateQuantity(item.id, item.quantity - 1)
                                   }
                                   className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 transition-colors hover:bg-white/10"
+                                  aria-label="Decrease quantity"
                                 >
                                   <Minus className="h-3 w-3" />
                                 </button>
@@ -132,6 +139,7 @@ export function CartSheet() {
                                     updateQuantity(item.id, item.quantity + 1)
                                   }
                                   className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 transition-colors hover:bg-white/10"
+                                  aria-label="Increase quantity"
                                 >
                                   <Plus className="h-3 w-3" />
                                 </button>
@@ -145,6 +153,7 @@ export function CartSheet() {
                                 <button
                                   onClick={() => removeItem(item.id)}
                                   className="text-muted-foreground transition-colors hover:text-red-400"
+                                  aria-label="Remove item"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>

@@ -1,17 +1,56 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { verifyJWT } from "@/lib/jwt";
+import { z } from "zod";
+
+const createAddressSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  phone: z.string().min(5, "Phone is required"),
+  address: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  isDefault: z.boolean().optional(),
+});
+
+const updateAddressSchema = z.object({
+  id: z.string().min(1, "Address ID is required"),
+  name: z.string().min(1, "Name is required").optional(),
+  phone: z.string().min(5, "Phone is required").optional(),
+  address: z.string().min(1, "Address is required").optional(),
+  city: z.string().min(1, "City is required").optional(),
+  isDefault: z.boolean().optional(),
+});
+
+async function getSession(req: Request) {
+  const cookieHeader = req.headers.get("cookie");
+  const token = cookieHeader
+    ?.split("; ")
+    .find((row) => row.startsWith("trollfit-session="))
+    ?.split("=")[1];
+
+  if (!token) return null;
+  return await verifyJWT(token);
+}
 
 // CREATE address
 export async function POST(req: Request) {
   try {
-    const { userId, name, phone, address, city, isDefault } = await req.json();
+    const session = await getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!userId || !name || !phone || !address || !city) {
+    const body = await req.json();
+    const result = createAddressSchema.safeParse(body);
+
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: result.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { name, phone, address, city, isDefault } = result.data;
+    const userId = session.userId;
 
     // Check if it's the user's first address, make it default regardless
     const userAddressesCount = await db.address.count({
@@ -46,7 +85,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("Address creation error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -55,12 +94,33 @@ export async function POST(req: Request) {
 // UPDATE address details
 export async function PUT(req: Request) {
   try {
-    const { id, name, phone, address, city, isDefault, userId } = await req.json();
+    const session = await getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!id || !userId) {
+    const body = await req.json();
+    const result = updateAddressSchema.safeParse(body);
+
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Address ID and User ID are required" },
+        { error: result.error.errors[0].message },
         { status: 400 }
+      );
+    }
+
+    const { id, name, phone, address, city, isDefault } = result.data;
+    const userId = session.userId;
+
+    // Verify ownership of the address being modified (prevent IDOR)
+    const existingAddress = await db.address.findUnique({
+      where: { id },
+    });
+
+    if (!existingAddress || existingAddress.userId !== userId) {
+      return NextResponse.json(
+        { error: "Address not found or unauthorized" },
+        { status: 403 }
       );
     }
 
@@ -90,7 +150,7 @@ export async function PUT(req: Request) {
   } catch (error: any) {
     console.error("Address update error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -99,28 +159,41 @@ export async function PUT(req: Request) {
 // DELETE address
 export async function DELETE(req: Request) {
   try {
+    const session = await getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    const userId = searchParams.get("userId");
 
-    if (!id || !userId) {
+    if (!id) {
       return NextResponse.json(
-        { error: "Address ID and User ID are required" },
+        { error: "Address ID is required" },
         { status: 400 }
       );
     }
 
-    // Find if the address we are deleting is default
+    const userId = session.userId;
+
+    // Verify ownership of the address (prevent IDOR)
     const addressToDelete = await db.address.findUnique({
       where: { id },
     });
+
+    if (!addressToDelete || addressToDelete.userId !== userId) {
+      return NextResponse.json(
+        { error: "Address not found or unauthorized" },
+        { status: 403 }
+      );
+    }
 
     await db.address.delete({
       where: { id },
     });
 
     // If we deleted the default address, set another remaining address as default
-    if (addressToDelete?.isDefault) {
+    if (addressToDelete.isDefault) {
       const remainingAddress = await db.address.findFirst({
         where: { userId },
       });
@@ -139,7 +212,7 @@ export async function DELETE(req: Request) {
   } catch (error: any) {
     console.error("Address deletion error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -148,12 +221,31 @@ export async function DELETE(req: Request) {
 // SET DEFAULT address (PATCH)
 export async function PATCH(req: Request) {
   try {
-    const { id, userId } = await req.json();
+    const session = await getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!id || !userId) {
+    const { id } = await req.json();
+
+    if (!id) {
       return NextResponse.json(
-        { error: "Address ID and User ID are required" },
+        { error: "Address ID is required" },
         { status: 400 }
+      );
+    }
+
+    const userId = session.userId;
+
+    // Verify ownership of the address (prevent IDOR)
+    const targetAddress = await db.address.findUnique({
+      where: { id },
+    });
+
+    if (!targetAddress || targetAddress.userId !== userId) {
+      return NextResponse.json(
+        { error: "Address not found or unauthorized" },
+        { status: 403 }
       );
     }
 
@@ -176,7 +268,7 @@ export async function PATCH(req: Request) {
   } catch (error: any) {
     console.error("Set default address error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

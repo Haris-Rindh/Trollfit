@@ -1,20 +1,43 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+import { rateLimit } from "@/lib/rate-limit";
+
+const signupSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  name: z.string().min(1, "Name is required").optional().nullable(),
+  phone: z.string().optional().nullable(),
+});
 
 export async function POST(req: Request) {
   try {
-    const { email, password, name, phone } = await req.json();
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
+    const limiter = rateLimit(ip, 5, 60 * 1000); // Strict limit on registration
 
-    if (!email || !password) {
+    if (!limiter.success) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Too many attempts. Please try again in a minute." },
+        { status: 429 }
+      );
+    }
+
+    const body = await req.json();
+    const result = signupSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error.errors[0].message },
         { status: 400 }
       );
     }
 
+    const { email, password, name, phone } = result.data;
+    const normalizedEmail = email.toLowerCase();
+
     const existingUser = await db.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
@@ -28,10 +51,10 @@ export async function POST(req: Request) {
 
     const user = await db.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
-        name,
-        phone,
+        name: name || null,
+        phone: phone || null,
       },
     });
 
@@ -45,7 +68,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("Signup error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { MagneticButton } from "@/components/animations/MagneticButton";
-import { Clock, Flame, Zap } from "lucide-react";
+import { Zap, Flame } from "lucide-react";
 
 // Set drop date to 7 days from now for demo
 const DROP_DATE = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -32,15 +32,10 @@ function getTimeLeft(target: Date): TimeLeft {
 }
 
 export function LimitedDrop() {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>(getTimeLeft(DROP_DATE));
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const timer = setInterval(() => {
-      setTimeLeft(getTimeLeft(DROP_DATE));
-    }, 1000);
-    return () => clearInterval(timer);
   }, []);
 
   if (!mounted) {
@@ -56,7 +51,6 @@ export function LimitedDrop() {
       {/* Background effects */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-background to-accent/5" />
-        {/* Border glow */}
         <motion.div
           className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent"
           animate={{ opacity: [0.3, 0.8, 0.3] }}
@@ -97,17 +91,9 @@ export function LimitedDrop() {
           </p>
         </ScrollReveal>
 
-        {/* Countdown */}
+        {/* Countdown - isolated inside TimerDisplay component to localize state updates */}
         <ScrollReveal delay={0.2}>
-          <div className="mb-10 flex items-center justify-center gap-3 sm:gap-5">
-            <CountdownUnit value={timeLeft.days} label="Days" />
-            <Separator />
-            <CountdownUnit value={timeLeft.hours} label="Hours" />
-            <Separator />
-            <CountdownUnit value={timeLeft.minutes} label="Mins" />
-            <Separator />
-            <CountdownUnit value={timeLeft.seconds} label="Secs" />
-          </div>
+          <TimerDisplay targetDate={DROP_DATE} />
         </ScrollReveal>
 
         {/* CTA */}
@@ -137,8 +123,31 @@ export function LimitedDrop() {
   );
 }
 
-// ─── Countdown Unit ──────────────────────────────────────
+// ─── Timer Display (Isolates 1-second state updates) ─────────
+function TimerDisplay({ targetDate }: { targetDate: Date }) {
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>(getTimeLeft(targetDate));
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(getTimeLeft(targetDate));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  return (
+    <div className="mb-10 flex items-center justify-center gap-3 sm:gap-5">
+      <CountdownUnit value={timeLeft.days} label="Days" />
+      <Separator />
+      <CountdownUnit value={timeLeft.hours} label="Hours" />
+      <Separator />
+      <CountdownUnit value={timeLeft.minutes} label="Mins" />
+      <Separator />
+      <CountdownUnit value={timeLeft.seconds} label="Secs" />
+    </div>
+  );
+}
+
+// ─── Countdown Unit ──────────────────────────────────────
 function CountdownUnit({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col items-center">
