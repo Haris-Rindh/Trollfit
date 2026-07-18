@@ -19,6 +19,15 @@ export function Navbar() {
   // Performance optimization: calculate count directly in selector instead of returning the function
   const totalItemsCount = useCartStore((s) => s.items.reduce((sum, item) => sum + item.quantity, 0));
   const { isAuthenticated, currentUser } = useAuthStore();
+  
+  // Hydration state check to prevent Next.js layout mismatch
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const showAuth = mounted && isAuthenticated;
+  const userLink = showAuth ? (currentUser?.role === "ADMIN" ? "/admin" : "/profile") : "/login";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -108,11 +117,14 @@ export function Navbar() {
 
             {/* Account (desktop) */}
             <Link
-              href={isAuthenticated ? (currentUser?.role === "ADMIN" ? "/admin" : "/profile") : "/login"}
-              className="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
+              href={userLink}
+              className="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex relative"
               aria-label="Account"
             >
-              <User className="h-[18px] w-[18px]" />
+              <User className={`h-[18px] w-[18px] transition-colors ${showAuth ? "text-primary animate-pulse" : ""}`} />
+              {showAuth && (
+                <span className={`absolute -right-0.5 -top-0.5 flex h-2 w-2 rounded-full ${currentUser?.role === "ADMIN" ? "bg-red-500 animate-pulse" : "bg-emerald-500"}`} />
+              )}
             </Link>
 
             {/* Theme Toggle */}
@@ -229,12 +241,12 @@ export function Navbar() {
               <div className="border-t border-white/5 pt-6">
                 <div className="grid grid-cols-2 gap-3">
                   <Link
-                    href={isAuthenticated ? (currentUser?.role === "ADMIN" ? "/admin" : "/profile") : "/login"}
+                    href={userLink}
                     onClick={closeMobileNav}
                     className="flex items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-medium transition-colors hover:bg-white/5"
                   >
                     <User className="h-4 w-4" />
-                    {isAuthenticated ? "Account" : "Login"}
+                    {showAuth ? (currentUser?.role === "ADMIN" ? "Admin Panel" : "Account") : "Login"}
                   </Link>
                   <Link
                     href="/wishlist"

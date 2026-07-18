@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -13,11 +13,23 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/profile";
   const login = useAuthStore((s) => s.login);
+  const { isAuthenticated, currentUser } = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Auto-redirect authenticated users away from forms to their destination
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      if (currentUser.role === "ADMIN") {
+        router.replace("/admin");
+      } else {
+        router.replace(redirect);
+      }
+    }
+  }, [isAuthenticated, currentUser, router, redirect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,7 +185,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href={`/signup?redirect=${encodeURIComponent(redirect)}`} className="font-bold text-primary hover:underline">
             Sign Up
           </Link>

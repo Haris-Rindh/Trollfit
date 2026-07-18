@@ -85,7 +85,7 @@ export function ProductCard({ product, className = "" }: ProductCardProps) {
               transition={{ duration: 0.5 }}
               className="absolute inset-0 flex items-center justify-center"
             >
-              <img src="/monogram.png" alt="TF Watermark" className="h-48 w-48 object-contain" />
+              <Image src="/monogram.png" alt="TF Watermark" width={192} height={192} className="object-contain" />
             </motion.div>
             <motion.button
               initial={{ y: 20, opacity: 0 }}
