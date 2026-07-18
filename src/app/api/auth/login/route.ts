@@ -116,7 +116,7 @@ export async function POST(req: Request) {
           name: "Admin Drip Lord",
           email: "admin@trollfit.pk",
           phone: "0311 7654321",
-          role: "ADMIN",
+          role: "ADMIN" as const,
           addresses: [],
           orders: [],
           password: "",
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
           name: "Guest Drip Lord",
           email: "guest@trollfit.pk",
           phone: "0300 1234567",
-          role: "CUSTOMER",
+          role: "CUSTOMER" as const,
           addresses: [
             {
               id: "addr-guest",
